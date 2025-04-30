@@ -27,3 +27,16 @@ Este proyecto es una API desarrollada con **Django REST Framework** que permite 
 ```bash
 git clone https://github.com/JuanesIng/juezVirtual.git
 cd juezVirtual
+```
+### 2. Levanta el entorno con Docker
+```
+docker-compose up --build
+```
+
+##Endpoints principales
+| Crear problema | `/api/problemas/` | POST |
+| Listar problemas | `/api/problemas/` | GET |
+| Crear testcase | `/api/testcases/` | POST |
+| Listar testcases | `/api/testcases/` | GET |
+| Crear submission | `/api/submissions/` | POST |
+| Listar submissions | `/api/submissions/` | GET |

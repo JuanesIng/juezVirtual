@@ -37,6 +37,5 @@ docker-compose up --build
 | Crear problema | `/api/problemas/` | POST |
 | Listar problemas | `/api/problemas/` | GET |
 | Crear testcase | `/api/testcases/` | POST |
-| Listar testcases | `/api/testcases/` | GET |
 | Crear submission | `/api/submissions/` | POST |
 | Listar submissions | `/api/submissions/` | GET |

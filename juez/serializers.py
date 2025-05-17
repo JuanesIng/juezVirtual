@@ -4,7 +4,7 @@ from .models import Problemas, Submissions, TestCases
 class CodeExecutionSerializer(serializers.Serializer):
     source_code = serializers.CharField()
     language_id = serializers.IntegerField()
-    stdin = serializers.CharField(required=False, allow_blank=True, default="")
+    problema_id = serializers.IntegerField()
 
 
 class SubmissionSerializer(serializers.ModelSerializer):

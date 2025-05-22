@@ -129,6 +129,13 @@ class ListaEnvios(generics.ListAPIView):
 
 ##VISTAS TESTCASES
 
+class ListaTestCases(generics.ListAPIView):
+    serializer_class = TestCaseSerializer
+
+    def get_queryset(self):
+        problema_id = self.kwargs['id']
+        return TestCases.objects.filter(problema_id=problema_id)
+
 class CrearTestCase(generics.CreateAPIView):
     queryset = TestCases.objects.all()
     serializer_class = TestCaseSerializer

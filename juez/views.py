@@ -123,11 +123,18 @@ class ActualizarProblema(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-class ListaCrearEnvios(generics.ListCreateAPIView):  # Cambiado aquí
+class ListaEnvios(generics.ListAPIView):
     queryset = Submissions.objects.all().order_by('-creacion')
     serializer_class = SubmissionSerializer
-    
+
 ##VISTAS TESTCASES
+
+class ListaTestCases(generics.ListAPIView):
+    serializer_class = TestCaseSerializer
+
+    def get_queryset(self):
+        problema_id = self.kwargs['id']
+        return TestCases.objects.filter(problema_id=problema_id)
 
 class CrearTestCase(generics.CreateAPIView):
     queryset = TestCases.objects.all()
@@ -146,35 +153,24 @@ class EliminarTestCase(APIView):
             )
 
 class ActualizarTestCase(APIView):
+    serializer_class = TestCaseSerializer
     def put(self, request, id, format=None):
-        test_cases = request.data.get('test_cases', [])
-
-        if not test_cases:
-            return Response({"error": "No se enviaron test cases"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Opcional: eliminar los test cases existentes para este problema (para no duplicar)
-        TestCases.objects.filter(problema_id=id).delete()
-
-        creados = []
-
-        for tc_data in test_cases:
-            tc_data['problema'] = id  # Asegurar asociación al problema
-            serializer = TestCaseSerializer(data=tc_data)
+        try:
+            problema = TestCases.objects.get(id=id)
+            serializer = TestCaseSerializer(problema, data=request.data)
+            
             if serializer.is_valid():
                 serializer.save()
-                creados.append(serializer.data)
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(creados, status=status.HTTP_200_OK)
+                return Response(serializer.data)
+            
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except TestCases.DoesNotExist:
+            return Response(
+                {"error": "TestCase no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
-class ListaTestCases(generics.ListAPIView):
-    serializer_class = TestCaseSerializer
-
-    def get_queryset(self):
-        problema_id = self.kwargs['id']
-        return TestCases.objects.filter(problema_id=problema_id)
-    
 class CrearMultiplesTestCases(APIView):
     def post(self, request):
         test_cases = request.data.get('test_cases', [])

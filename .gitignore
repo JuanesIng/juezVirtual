@@ -1,0 +1,13 @@
+*.pyc
+__pycache__/
+db.sqlite3
+/media
+/staticfiles
+.env
+venv/
+
+# Docker stuff:
+*.pid
+*.seed
+*.pid.lock
+docker-compose.override.yml

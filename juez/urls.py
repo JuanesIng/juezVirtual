@@ -1,15 +1,33 @@
 from django.urls import path
-from .views import PruebaCodigo, CrearListarProblemas, ListaEnvios, CrearTestCase, EliminarProblema, ActualizarProblema, EliminarTestCase, ActualizarTestCase, ListaTestCases
-
+from .views import (
+    CodeExecutionView,
+    ProblemListCreateView,
+    ProblemDeleteView,
+    ProblemUpdateView,
+    SubmissionListCreateView,
+    TestCaseListView,
+    TestCaseCreateView,
+    TestCaseDeleteView,
+    TestCaseUpdateView,
+    MultipleTestCaseCreateView,
+)
 
 urlpatterns = [
-    path('problemas/', CrearListarProblemas.as_view(), name='listar-crear-problema'),
-    path('problemas/eliminar/<int:id>/', EliminarProblema.as_view(), name='eliminar-problema'),
-    path('problemas/editar/<int:id>/', ActualizarProblema.as_view(), name='ctualizar-problema'),
-    path('submissions/', ListaEnvios.as_view(), name='listar-submission'),
-    path('testcases/', CrearTestCase.as_view(), name='crear-testcase'),
-    path('problemas/<int:id>/testcases', ListaTestCases.as_view(), name='crear-testcase'),
-    path('testcases/eliminar/<int:id>/', EliminarTestCase.as_view(), name='eliminar-testcase'),
-    path('testcases/editar/<int:id>/', ActualizarTestCase.as_view(), name='actualizar-testcase'),
-    path('run/', PruebaCodigo.as_view(), name='ejecutor'),
+    # Problems
+    path('problems/', ProblemListCreateView.as_view(), name='problem-list-create'),
+    path('problems/delete/<int:id>/', ProblemDeleteView.as_view(), name='problem-delete'),
+    path('problems/update/<int:id>/', ProblemUpdateView.as_view(), name='problem-update'),
+    path('problems/<int:id>/test-cases/', TestCaseListView.as_view(), name='testcase-list'),
+
+    # Submissions
+    path('submissions/', SubmissionListCreateView.as_view(), name='submission-list-create'),
+
+    # Test Cases
+    path('test-cases/', MultipleTestCaseCreateView.as_view(), name='testcase-multiple-create'),
+    path('test-cases/delete/<int:id>/', TestCaseDeleteView.as_view(), name='testcase-delete'),
+    path('test-cases/update/<int:id>/', TestCaseUpdateView.as_view(), name='testcase-update'),
+
+    # Code Execution
+    path('execute/', CodeExecutionView.as_view(), name='code-execution'),
 ]
+

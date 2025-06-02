@@ -1,11 +1,17 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
-from .models import Problemas, Submissions, TestCases, SubmissionTestCaseResult
-from .serializers import CodeExecutionSerializer, ProblemSerializer, SubmissionSerializer, TestCaseSerializer
+from .models import Problem, Submission, TestCase, SubmissionTestCaseResult
+from .serializers import (
+    CodeExecutionSerializer,
+    ProblemSerializer,
+    SubmissionSerializer,
+    TestCaseSerializer
+)
 from .services.judge0 import submit_code, get_submission
 
-class PruebaCodigo(APIView):
+
+class CodeExecutionView(APIView):
     def post(self, request):
         serializer = CodeExecutionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -13,56 +19,56 @@ class PruebaCodigo(APIView):
 
         source_code = serializer.validated_data['source_code']
         language_id = serializer.validated_data['language_id']
-        problema_id = serializer.validated_data['problema_id']
-        user_id = request.data.get('user_id')  # o extraído desde request.headers o JWT
+        problem_id = serializer.validated_data['problem_id']
+        user_id = request.data.get('user_id')
 
         try:
-            problema = Problemas.objects.get(pk=problema_id)
-        except Problemas.DoesNotExist:
-            return Response({"error": "No se encontró el problema"}, status=status.HTTP_404_NOT_FOUND)
+            problem = Problem.objects.get(pk=problem_id)
+        except Problem.DoesNotExist:
+            return Response({"error": "Problem not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        testcases = problema.testcases.all()
-        if not testcases.exists():
-            return Response({"error": "No hay testcases"}, status=status.HTTP_400_BAD_REQUEST)
+        test_cases = problem.test_cases.all()
+        if not test_cases.exists():
+            return Response({"error": "No test cases found"}, status=status.HTTP_400_BAD_REQUEST)
 
-        all_passed = True
-        first_output = ""
-        error_output = None
-        execution_time = None
-        memory = None
-
-        submission = Submissions.objects.create(
+        submission = Submission.objects.create(
             user_id=user_id,
-            problema=problema,
+            problem=problem,
             source_code=source_code,
             language_id=language_id,
             stdin="",
             status="PENDING"
         )
 
-        for i, testcase in enumerate(testcases):
-            submission_data = submit_code(source_code, language_id, testcase.input_data)
+        all_passed = True
+        first_output = ""
+        error_output = None
+        execution_time = None
+        memory_usage = None
+
+        for idx, test_case in enumerate(test_cases):
+            submission_data = submit_code(source_code, language_id, test_case.input_data)
             token = submission_data.get("token")
             result = get_submission(token)
 
             output = (result.get("stdout") or "").strip()
-            expected = testcase.expected_output.strip()
+            expected_output = test_case.expected_output.strip()
             error = result.get("stderr") or result.get("compile_output")
-            passed = (output == expected) and not error
+            passed = (output == expected_output) and not error
 
-            if i == 0:
+            if idx == 0:
                 first_output = output
                 error_output = error
                 execution_time = result.get("time")
-                memory = result.get("memory")
+                memory_usage = result.get("memory")
 
             SubmissionTestCaseResult.objects.create(
                 submission=submission,
-                input_data=testcase.input_data,
-                expected_output=expected,
+                input_data=test_case.input_data,
+                expected_output=expected_output,
                 user_output=output,
                 passed=passed,
-                error=error.strip() if error else None
+                error_message=error.strip() if error else None
             )
 
             if not passed:
@@ -72,101 +78,124 @@ class PruebaCodigo(APIView):
         submission.output = first_output
         submission.error_output = error_output
         submission.execution_time = execution_time
-        submission.memory = memory
+        submission.memory_usage = memory_usage
         submission.save()
 
-        results = submission.testcase_results.values(
-            "input_data", "expected_output", "user_output", "passed", "error"
+        results = submission.test_case_results.values(
+            "input_data", "expected_output", "user_output", "passed", "error_message"
         )
 
         return Response({
             "submission_id": submission.id,
             "status": submission.status,
             "execution_time": execution_time,
-            "memory": memory,
-            "testcase_results": list(results)
+            "memory_usage": memory_usage,
+            "test_case_results": list(results)
         }, status=status.HTTP_200_OK)
 
-##VISTAS PROBLEMAS
-class CrearListarProblemas(generics.ListCreateAPIView):
-    queryset = Problemas.objects.all().order_by('-creacion')
+
+# PROBLEM VIEWS
+
+class ProblemListCreateView(generics.ListCreateAPIView):
+    queryset = Problem.objects.all().order_by('-created_at')
     serializer_class = ProblemSerializer
 
-class EliminarProblema(APIView):
+
+class ProblemDeleteView(APIView):
     def delete(self, request, id):
         try:
-            problema = Problemas.objects.get(id=id)
-            problema.delete()
+            problem = Problem.objects.get(id=id)
+            problem.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except Problemas.DoesNotExist:
-            return Response(
-                {"error": "Problema no encontrado"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-class ActualizarProblema(APIView):
-    serializer_class = ProblemSerializer
-    def put(self, request, id, format=None):
-        try:
-            problema = Problemas.objects.get(id=id)
-            serializer = ProblemSerializer(problema, data=request.data)
-            
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-        except Problemas.DoesNotExist:
-            return Response(
-                {"error": "Problema no encontrado"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        except Problem.DoesNotExist:
+            return Response({"error": "Problem not found"}, status=status.HTTP_404_NOT_FOUND)
 
-class ListaEnvios(generics.ListAPIView):
-    queryset = Submissions.objects.all().order_by('-creacion')
+
+class ProblemUpdateView(APIView):
+    def put(self, request, id):
+        try:
+            problem = Problem.objects.get(id=id)
+        except Problem.DoesNotExist:
+            return Response({"error": "Problem not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ProblemSerializer(problem, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# SUBMISSION VIEWS
+
+class SubmissionListCreateView(generics.ListCreateAPIView):
+    queryset = Submission.objects.all().order_by('-created_at')
     serializer_class = SubmissionSerializer
 
-##VISTAS TESTCASES
 
-class ListaTestCases(generics.ListAPIView):
+# TEST CASE VIEWS
+
+class TestCaseCreateView(generics.CreateAPIView):
+    queryset = TestCase.objects.all()
+    serializer_class = TestCaseSerializer
+
+
+class TestCaseDeleteView(APIView):
+    def delete(self, request, id):
+        try:
+            test_case = TestCase.objects.get(id=id)
+            test_case.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except TestCase.DoesNotExist:
+            return Response({"error": "Test case not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TestCaseUpdateView(APIView):
+    def put(self, request, id):
+        test_cases_data = request.data.get('test_cases', [])
+
+        if not test_cases_data:
+            return Response({"error": "No test cases provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        TestCase.objects.filter(problem_id=id).delete()
+
+        created_test_cases = []
+        for tc_data in test_cases_data:
+            tc_data['problem'] = id
+            serializer = TestCaseSerializer(data=tc_data)
+            if serializer.is_valid():
+                serializer.save()
+                created_test_cases.append(serializer.data)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(created_test_cases, status=status.HTTP_200_OK)
+
+
+class TestCaseListView(generics.ListAPIView):
     serializer_class = TestCaseSerializer
 
     def get_queryset(self):
-        problema_id = self.kwargs['id']
-        return TestCases.objects.filter(problema_id=problema_id)
+        problem_id = self.kwargs['id']
+        return TestCase.objects.filter(problem_id=problem_id)
 
-class CrearTestCase(generics.CreateAPIView):
-    queryset = TestCases.objects.all()
-    serializer_class = TestCaseSerializer
 
-class EliminarTestCase(APIView):
-    def delete(self, request, id):
-        try:
-            testCase = TestCases.objects.get(id=id)
-            testCase.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except TestCases.DoesNotExist:
-            return Response(
-                {"error": "TestCase no encontrado"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+class MultipleTestCaseCreateView(APIView):
+    def post(self, request):
+        test_cases_data = request.data.get('test_cases', [])
+        problem_id = request.data.get('problem_id')
 
-class ActualizarTestCase(APIView):
-    serializer_class = TestCaseSerializer
-    def put(self, request, id, format=None):
-        try:
-            problema = TestCases.objects.get(id=id)
-            serializer = TestCaseSerializer(problema, data=request.data)
-            
+        if not test_cases_data or not problem_id:
+            return Response({"error": "Missing test cases or problem_id"}, status=status.HTTP_400_BAD_REQUEST)
+
+        created_test_cases = []
+        for tc_data in test_cases_data:
+            tc_data['problem'] = problem_id
+            serializer = TestCaseSerializer(data=tc_data)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data)
-            
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-        except TestCases.DoesNotExist:
-            return Response(
-                {"error": "TestCase no encontrado"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+                created_test_cases.append(serializer.data)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(created_test_cases, status=status.HTTP_201_CREATED)

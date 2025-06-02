@@ -1,26 +1,27 @@
 from django.db import models
 
-class Problemas(models.Model):
-    DIFICULTAD_CHOICES = [
-        ("Facil", "Fácil"),
+
+class Problem(models.Model):
+    DIFFICULTY_CHOICES = [
+        ("Fácil", "Fácil"),
         ("Media", "Media"),
-        ("Dificil", "Difícil"),
+        ("Difícil", "Difícil"),
     ]
 
-    titulo = models.CharField(max_length=255)
-    descripcion = models.TextField()
-    input_descripcion = models.TextField()
-    output_descripcion = models.TextField()
-    ejemplo_input = models.TextField()
-    ejemplo_output = models.TextField()
-    creacion = models.DateTimeField(auto_now_add=True)
-    dificultad = models.CharField(max_length=10, choices=DIFICULTAD_CHOICES, default="Media")
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    input_description = models.TextField()
+    output_description = models.TextField()
+    example_input = models.TextField()
+    example_output = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default="Media")
 
     def __str__(self):
-        return self.titulo
+        return f"{self.title} ({self.difficulty})"
 
 
-class Submissions(models.Model):
+class Submission(models.Model):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("CORRECT", "Correct"),
@@ -30,37 +31,41 @@ class Submissions(models.Model):
     ]
 
     user_id = models.CharField(max_length=100, null=True, blank=True)
-    problema = models.ForeignKey(Problemas, on_delete=models.CASCADE, related_name='submissions')
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE, related_name='submissions')
     source_code = models.TextField()
     language_id = models.IntegerField()
     stdin = models.TextField(blank=True, default="")
     output = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     execution_time = models.CharField(max_length=20, blank=True, null=True)
-    memory = models.CharField(max_length=20, blank=True, null=True)
+    memory_usage = models.CharField(max_length=20, blank=True, null=True)
     error_output = models.TextField(blank=True, null=True)
-    creacion = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Submission {self.id} - {self.problema.titulo}"
-    
-class TestCases(models.Model):
-    problema = models.ForeignKey(Problemas, on_delete=models.CASCADE, related_name='testcases')
+        return f"Submission {self.id} - {self.problem.title}"
+
+
+class TestCase(models.Model):
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE, related_name='test_cases')
     input_data = models.TextField()
     expected_output = models.TextField()
-    visible = models.BooleanField(default=False)
-    creacion = models.DateTimeField(auto_now_add=True)
+    is_visible = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"TestCase para {self.problema.titulo}"
+        visibility = "Visible" if self.is_visible else "Hidden"
+        return f"Caso de prueba para {self.problem.title} ({visibility})"
+
 
 class SubmissionTestCaseResult(models.Model):
-    submission = models.ForeignKey(Submissions, on_delete=models.CASCADE, related_name='testcase_results')
+    submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name='test_case_results')
     input_data = models.TextField()
     expected_output = models.TextField()
     user_output = models.TextField(blank=True, null=True)
     passed = models.BooleanField(default=False)
-    error = models.TextField(blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"Resultado del test case para Submission {self.submission.id}"
+        result = "Passed" if self.passed else "Failed"
+        return f"Resultado de caso de prueba para envío {self.submission.id} - {result}"
